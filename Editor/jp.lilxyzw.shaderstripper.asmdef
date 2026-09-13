@@ -1,0 +1,25 @@
+{
+    "name": "jp.lilxyzw.shaderstripper",
+    "rootNamespace": "jp.lilxyzw.shaderstripper",
+    "references": [
+        "nadena.dev.ndmf",
+        "BasisSDKEditor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.basis.sdk",
+            "expression": "",
+            "define": "LIL_BASIS_SDK"
+        }
+    ],
+    "noEngineReferences": false
+}
