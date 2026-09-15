@@ -16,6 +16,11 @@
     "defineConstraints": [],
     "versionDefines": [
         {
+            "name": "nadena.dev.ndmf",
+            "expression": "",
+            "define": "LIL_NDMF"
+        },
+        {
             "name": "com.basis.sdk",
             "expression": "",
             "define": "LIL_BASIS_SDK"

@@ -20,15 +20,31 @@ namespace jp.lilxyzw.shaderstripper
             set => Settings.instance.strip_LOD_FADE_CROSSFADE = value;
         }
 
+        /// <summary>
+        /// Set this to true if you want to force stripping.
+        /// </summary>
+        public static bool strip_DOTS_INSTANCING_ON
+        {
+            get => Settings.instance.strip_DOTS_INSTANCING_ON;
+            set => Settings.instance.strip_DOTS_INSTANCING_ON = value;
+        }
+
+        /// <summary>
+        /// Set this to true if you want to force stripping.
+        /// </summary>
         public static bool strip_LightMapVariants
         {
             get => Settings.instance.strip_LightMapVariants;
             set => Settings.instance.strip_LightMapVariants = value;
         }
 
+        /// <summary>
+        /// Reset all settings.
+        /// </summary>
         public static void Reset()
         {
             strip_LOD_FADE_CROSSFADE = false;
+            strip_DOTS_INSTANCING_ON = false;
             strip_LightMapVariants = false;
         }
 
@@ -37,10 +53,13 @@ namespace jp.lilxyzw.shaderstripper
         /// </summary>
         public static HashSet<string> customKeywords = new();
 
-        public int callbackOrder => 0;
+        private static HashSet<string> urpKeywords = null;
+
+        public int callbackOrder => 100;
         private readonly ShaderKeyword m_SHADOWS_DEPTH;
         private readonly ShaderKeyword m_SHADOWS_CUBE;
         private readonly ShaderKeyword m_LOD_FADE_CROSSFADE;
+        private readonly ShaderKeyword m_DOTS_INSTANCING_ON;
 
         private readonly ShaderKeyword m_LIGHTMAP_SHADOW_MIXING;
         private readonly ShaderKeyword m_SHADOWS_SHADOWMASK;
@@ -55,6 +74,7 @@ namespace jp.lilxyzw.shaderstripper
             m_SHADOWS_DEPTH = new("SHADOWS_DEPTH");
             m_SHADOWS_CUBE = new("SHADOWS_CUBE");
             m_LOD_FADE_CROSSFADE = new("LOD_FADE_CROSSFADE");
+            m_DOTS_INSTANCING_ON = new("DOTS_INSTANCING_ON");
 
             m_LIGHTMAP_SHADOW_MIXING = new("LIGHTMAP_SHADOW_MIXING");
             m_SHADOWS_SHADOWMASK = new("SHADOWS_SHADOWMASK");
@@ -68,51 +88,55 @@ namespace jp.lilxyzw.shaderstripper
         public void OnProcessShader(Shader shader, ShaderSnippetData snippet, IList<ShaderCompilerData> data)
         {
             // Do not strip built-in shaders
-            if (AssetDatabase.GetAssetPath(shader).StartsWith("Packages/com.unity.render-pipelines.universal")) return;
-
-            // BiRP
-            if (!GraphicsSettings.currentRenderPipeline)
+            if (!AssetDatabase.GetAssetPath(shader).StartsWith("Packages/com.unity.render-pipelines.universal"))
             {
-                // Strip URP SubShader
-                switch (snippet.passType)
+                // BiRP
+                if (!GraphicsSettings.currentRenderPipeline)
                 {
-                    case PassType.Meta:
-                    case PassType.ScriptableRenderPipeline:
-                        data.Clear();
-                        break;
-                    case PassType.ShadowCaster:
-                        ExclusionStrip(data, m_SHADOWS_DEPTH, m_SHADOWS_CUBE);
-                        break;
-                }
-            }
-
-            // URP
-            else
-            {
-                // Strip BiRP SubShader
-                switch (snippet.passType)
-                {
-                    case PassType.ForwardBase:
-                    case PassType.ForwardAdd:
-                    case PassType.Meta:
-                        data.Clear();
-                        break;
-                    case PassType.ShadowCaster:
-                        Strip(data, true, m_SHADOWS_DEPTH, m_SHADOWS_CUBE);
-                        break;
+                    // Strip URP SubShader
+                    switch (snippet.passType)
+                    {
+                        case PassType.Meta:
+                        case PassType.ScriptableRenderPipeline:
+                            data.Clear();
+                            break;
+                        case PassType.ShadowCaster:
+                            ExclusionStrip(data, m_SHADOWS_DEPTH, m_SHADOWS_CUBE);
+                            break;
+                    }
                 }
 
-                // Strip invalid global keywords
-                // This does not work correctly with shaders that use global shader keywords inappropriately.
-                var litKeywords = Shader.Find("Universal Render Pipeline/Lit").keywordSpace.keywords
-                    .Where(k => k.isOverridable)
-                    .Select(k => k.name)
-                    .ToHashSet();
-                var invalidKeywords = shader.keywordSpace.keywords
-                    .Where(k => k.isOverridable && !litKeywords.Contains(k.name) && !customKeywords.Contains(k.name))
-                    .Select(k => new ShaderKeyword(k.name))
-                    .ToArray();
-                Strip(data, false, invalidKeywords);
+                // URP
+                else
+                {
+                    // Strip BiRP SubShader
+                    switch (snippet.passType)
+                    {
+                        case PassType.ForwardBase:
+                        case PassType.ForwardAdd:
+                        case PassType.Meta:
+                            data.Clear();
+                            break;
+                        case PassType.ShadowCaster:
+                            Strip(data, true, m_SHADOWS_DEPTH, m_SHADOWS_CUBE);
+                            break;
+                    }
+
+                    // Strip invalid global keywords
+                    // This does not work correctly with shaders that use global shader keywords inappropriately.
+                    urpKeywords ??= AssetDatabase.FindAssets("t:shader", new[]{"Packages/com.unity.render-pipelines.universal"})
+                        .Select(guid => AssetDatabase.LoadAssetByGUID<Shader>(new(guid)))
+                        .Where(s => s)
+                        .SelectMany(s => s.keywordSpace.keywords)
+                        .Where(k => k.isOverridable)
+                        .Select(k => k.name)
+                        .ToHashSet();
+                    var invalidKeywords = shader.keywordSpace.keywords
+                        .Where(k => k.isOverridable && !urpKeywords.Contains(k.name) && !customKeywords.Contains(k.name))
+                        .Select(k => new ShaderKeyword(k.name))
+                        .ToArray();
+                    Strip(data, false, invalidKeywords);
+                }
             }
 
             // Strip lightmap
@@ -132,6 +156,10 @@ namespace jp.lilxyzw.shaderstripper
             // Strip LOD_FADE_CROSSFADE
             if (strip_LOD_FADE_CROSSFADE || !Object.FindAnyObjectByType<LODGroup>(FindObjectsInactive.Include))
                 Strip(data, false, m_LOD_FADE_CROSSFADE);
+
+            // Strip DOTS_INSTANCING_ON
+            if (strip_DOTS_INSTANCING_ON)
+                Strip(data, false, m_DOTS_INSTANCING_ON);
         }
 
         private static void Strip(IList<ShaderCompilerData> data, bool stripAll, params ShaderKeyword[] keywords)
@@ -160,6 +188,7 @@ namespace jp.lilxyzw.shaderstripper
         {
             public bool strip_LOD_FADE_CROSSFADE = false;
             public bool strip_LightMapVariants = false;
+            public bool strip_DOTS_INSTANCING_ON = false;
         }
     }
 }

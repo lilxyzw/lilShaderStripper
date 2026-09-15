@@ -8,7 +8,9 @@ namespace jp.lilxyzw.shaderstripper
         [InitializeOnLoadMethod]
         private static void Initialize()
         {
-            //BasisAssetBundlePipeline.OnBeforeBuildPrefab += (_,_) => ShaderStripper.Reset(); // NDMF
+            #if !LIL_NDMF
+            BasisAssetBundlePipeline.OnBeforeBuildPrefab += (prefab,_) => GameObjectScanner.Scan(prefab);
+            #endif
             BasisAssetBundlePipeline.OnBeforeBuildScene += (_,_) => ShaderStripper.Reset();
             BasisAssetBundlePipeline.OnAfterBuildPrefab += (_) => ShaderStripper.Reset();
             BasisAssetBundlePipeline.OnAfterBuildScene += (_) => ShaderStripper.Reset();
