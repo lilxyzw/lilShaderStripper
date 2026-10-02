@@ -107,6 +107,7 @@ namespace jp.lilxyzw.shaderstripper
                 }
 
                 // URP
+                #if UNITY_6000_0_OR_NEWER
                 else
                 {
                     // Strip BiRP SubShader
@@ -136,7 +137,12 @@ namespace jp.lilxyzw.shaderstripper
                         .Select(k => new ShaderKeyword(k.name))
                         .ToArray();
                     Strip(data, false, invalidKeywords);
+
+                    // Strip DOTS_INSTANCING_ON
+                    if (strip_DOTS_INSTANCING_ON)
+                        Strip(data, false, m_DOTS_INSTANCING_ON);
                 }
+                #endif
             }
 
             // Strip lightmap
@@ -157,9 +163,11 @@ namespace jp.lilxyzw.shaderstripper
             if (strip_LOD_FADE_CROSSFADE || !Object.FindAnyObjectByType<LODGroup>(FindObjectsInactive.Include))
                 Strip(data, false, m_LOD_FADE_CROSSFADE);
 
-            // Strip DOTS_INSTANCING_ON
-            if (strip_DOTS_INSTANCING_ON)
-                Strip(data, false, m_DOTS_INSTANCING_ON);
+            // Strip dynamic_branch
+            // https://issuetracker.unity.com/issues/9284/dynamic-branching-generates-shader-variants-when-building-the-project
+            #if !UNITY_6000_4_OR_NEWER
+            Strip(data, false, ShaderUtil.GetPassKeywords(shader, snippet.pass, snippet.shaderType).Where(k => k.isDynamic).Select(k => new ShaderKeyword(k.name)).ToArray());
+            #endif
         }
 
         private static void Strip(IList<ShaderCompilerData> data, bool stripAll, params ShaderKeyword[] keywords)

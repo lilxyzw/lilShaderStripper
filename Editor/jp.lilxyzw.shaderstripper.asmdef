@@ -24,6 +24,11 @@
             "name": "com.basis.sdk",
             "expression": "",
             "define": "LIL_BASIS_SDK"
+        },
+        {
+            "name": "com.vrchat.base",
+            "expression": "",
+            "define": "LIL_VRC_SDK"
         }
     ],
     "noEngineReferences": false
